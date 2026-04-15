@@ -47,14 +47,11 @@ class AppointmentCreateAPIView(generics.CreateAPIView):
 
 
     def get_queryset(self):
-        return Appointment.objects.select_related(
-            "user",
-            "provider"
-        )
+        return Appointment.objects.select_related("user", "provider")
 
     @transaction.atomic
     def perform_create(self, serializer):
-        serializer.save()
+        serializer.save(user=self.request.user)
 
 
 class AppointmentDetailAPIView(generics.RetrieveAPIView):
@@ -91,17 +88,24 @@ class SlotGenerationAPIView(generics.GenericAPIView):
 
         serializer = self.get_serializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
-
-        provider = ServiceProvider.objects.get(
-            id=serializer.validated_data["provider"]
-        )
+        provider = ServiceProvider.objects.get(id=serializer.validated_data["provider"])
         date = serializer.validated_data["date"]
+
+        if not provider.is_available:
+            return Response({"error": "Provider not available"}, status=400)
 
         start_dt = datetime.combine(date, provider.start_time)
         end_dt = datetime.combine(date, provider.end_time)
+        booked = Appointment.objects.filter(provider=provider, date=date)
+        booked_slots = [(b.start_time, b.end_time) for b in booked]
 
-        total_minutes = int((end_dt - start_dt).total_seconds() / 60)
-        slots_count = total_minutes // 30
+        def is_overlap(start, end):
+            return any(
+                start < b_end and end > b_start
+                for b_start, b_end in booked_slots
+            )
+
+        slots_count = int((end_dt - start_dt).total_seconds() // 1800)
 
         slots = [
             {
@@ -109,6 +113,10 @@ class SlotGenerationAPIView(generics.GenericAPIView):
                 "end_time": (start_dt + timedelta(minutes=30 * (i + 1))).time(),
             }
             for i in range(slots_count)
+            if not is_overlap(
+                (start_dt + timedelta(minutes=30 * i)).time(),
+                (start_dt + timedelta(minutes=30 * (i + 1))).time(),
+            )
         ]
 
         return Response(slots)

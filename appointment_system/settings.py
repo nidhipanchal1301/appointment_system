@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'accounts',
     'providers',
     'appointments',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -55,7 +56,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'appointment_system.urls'
@@ -179,3 +181,10 @@ INTERNAL_IPS = [
 ]
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),  # increase time
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+}
